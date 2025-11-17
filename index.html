@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Flappy Bird</title>
+  <style>
+    body { background: #70c5ce; margin: 0; overflow: hidden; }
+    canvas { display: block; margin: 0 auto; background: #70c5ce; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <script>
+    // Customizable assets
+    const birdImageSrc = 'bird.png';  // Your bird image
+    const fireImageSrc = 'fire.png';  // Fire obstacle image
+    const soundFlapSrc = 'flap.mp3';
+    const soundScoreSrc = 'score.mp3';
+    const soundGameOverSrc = 'gameover.mp3';
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const GRAVITY = 0.25;
+    const FLAP_STRENGTH = -6;
+    const BIRD_SIZE = 40;
+
+    const birdImg = new Image();
+    birdImg.src = birdImageSrc;
+    const fireImg = new Image();
+    fireImg.src = fireImageSrc;
+
+    const soundFlap = new Audio(soundFlapSrc);
+    const soundScore = new Audio(soundScoreSrc);
+    const soundGameOver = new Audio(soundGameOverSrc);
+
+    let bird = { x: 60, y: 200, vy: 0 };
+    let fires = [];
+    let score = 0;
+    let gameOver = false;
+
+    function resetGame() {
+      bird.y = 200; bird.vy = 0; score = 0; fires = [];
+      gameOver = false;
+    }
+
+    function flap() {
+      if (gameOver) { resetGame(); return; }
+      bird.vy = FLAP_STRENGTH;
+      soundFlap.play();
+    }
+
+    function addFire() {
+      const gap = 150, minHeight = 60, maxHeight = 400;
+      const top = Math.floor(Math.random() * (maxHeight - minHeight) + minHeight);
+      fires.push({
+        x: canvas.width,
+        top: top,
+        bottom: canvas.height - (top + gap),
+        width: 60
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw bird
+      ctx.drawImage(birdImg, bird.x, bird.y, BIRD_SIZE, BIRD_SIZE);
+
+      // Draw fires
+      fires.forEach(fire => {
+        // Top fire (flipped vertically)
+        ctx.save();
+        ctx.translate(fire.x + fire.width / 2, fire.top / 2);
+        ctx.scale(1, -1);  // Flip vertically
+        ctx.drawImage(fireImg, -fire.width / 2, -fire.top / 2, fire.width, fire.top);
+        ctx.restore();
+
+        // Bottom fire
+        ctx.drawImage(fireImg, fire.x, canvas.height - fire.bottom, fire.width, fire.bottom);
+      });
+
+      // Draw score
+      ctx.fillStyle = "#fff";
+      ctx.font = "30px Arial";
+      ctx.fillText(score, 20, 50);
+
+      if (gameOver) {
+        ctx.fillStyle = "#f00";
+        ctx.font = "48px Arial";
+        ctx.fillText("Game Over", 70, 300);
+      }
+    }
+
+    function update() {
+      if (gameOver) return;
+
+      bird.vy += GRAVITY;
+      bird.y += bird.vy;
+
+      if (fires.length === 0 || fires[fires.length - 1].x < 200) addFire();
+
+      fires.forEach(fire => {
+        fire.x -= 2;
+
+        if (fire.x + fire.width < bird.x && !fire.counted) {
+          score++;
+          fire.counted = true;
+          soundScore.play();
+        }
+      });
+
+      fires = fires.filter(fire => fire.x + fire.width > 0);
+
+      fires.forEach(fire => {
+        if (
+          bird.x + BIRD_SIZE > fire.x && bird.x < fire.x + fire.width &&
+          (bird.y < fire.top || bird.y + BIRD_SIZE > canvas.height - fire.bottom)
+        ) {
+          endGame();
+        }
+      });
+
+      if (bird.y < 0 || bird.y + BIRD_SIZE > canvas.height) endGame();
+    }
+
+    function endGame() {
+      if (!gameOver) soundGameOver.play();
+      gameOver = true;
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener('keydown', e => { if (e.code === 'Space') flap(); });
+    window.addEventListener('mousedown', flap);
+
+    birdImg.onload = function() {
+      fireImg.onload = function() {
+        gameLoop();
+      };
+    };
+  </script>
+</body>
+</html>
