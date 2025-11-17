@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Neeche dekh bsdk</title>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet" />
+  <style>
+    body { 
+      margin: 0; 
+      overflow: hidden; 
+      background: linear-gradient(135deg, #ff4500 0%, #ff6347 50%, #ff8c00 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      color: #fff;
+      font-family: 'Anton', sans-serif;
+      user-select: none;
+    }
+
+    h1 {
+      margin: 20px 0 10px 0;
+      font-size: 3rem;
+      letter-spacing: 2px;
+      text-shadow: 2px 2px 5px #800000;
+    }
+
+    canvas {
+      display: block; 
+      background: #2f1200; 
+      border-radius: 10px;
+      box-shadow: 0 0 15px 5px rgba(255, 69, 0, 0.7);
+
+    copyright {
+        color: #ff7f50;
+  text-align: center;
+  font-family: 'Anton', sans-serif;
+  font-size: 14px;
+  margin-top: 8px;
+  text-shadow: 0 0 5px #ff4500;
+  user-select: none;
+}
+    }
+  </style>
+</head>
+<body>
+  <h1>Maa ka Bhosda bird</h1>    
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+
+<div id="copyright">© Made by lakshhh</div>
+
+  <script>
+    // Customizable assets
+    const birdImageSrc = 'bird.png';  // Your bird image
+    const fireImageSrc = 'fire.png';  // Fire obstacle image
+    const soundFlapSrc = 'flap1.mp3';
+    const soundScoreSrc = 'flap.mp3';
+    const soundGameOverSrc = 'gameover.mp3';
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const GRAVITY = 0.2;
+    const FLAP_STRENGTH = -6;
+    const BIRD_SIZE = 30;
+
+    const birdImg = new Image();
+    birdImg.src = birdImageSrc;
+    const fireImg = new Image();
+    fireImg.src = fireImageSrc;
+
+    const soundFlap = new Audio(soundFlapSrc);
+    const soundScore = new Audio(soundScoreSrc);
+    const soundGameOver = new Audio(soundGameOverSrc);
+
+    let bird = { x: 60, y: 200, vy: 0 };
+    let fires = [];
+    let score = 0;
+    let gameOver = false;
+
+    function resetGame() {
+      bird.y = 200; bird.vy = 0; score = 0; fires = [];
+      gameOver = false;
+    }
+
+    function flap() {
+      if (gameOver) { resetGame(); return; }
+      bird.vy = FLAP_STRENGTH;
+      soundFlap.play();
+    }
+
+    function addFire() {
+      const gap = 300, minHeight = 60, maxHeight = 400;
+      const top = Math.floor(Math.random() * (maxHeight - minHeight) + minHeight);
+      fires.push({
+        x: canvas.width,
+        top: top,
+        bottom: canvas.height - (top + gap),
+        width: 60
+      });
+    }
+
+    function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw bird
+  ctx.drawImage(birdImg, bird.x, bird.y, BIRD_SIZE, BIRD_SIZE);
+
+  // Draw fires
+  fires.forEach(fire => {
+    ctx.save();
+    ctx.translate(fire.x + fire.width / 2, fire.top / 2);
+    ctx.scale(1, -1);
+    ctx.drawImage(fireImg, -fire.width / 2, -fire.top / 2, fire.width, fire.top);
+    ctx.restore();
+
+    ctx.drawImage(fireImg, fire.x, canvas.height - fire.bottom, fire.width, fire.bottom);
+  });
+
+  // Stylish score text with fire gradient and glow
+  const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+  gradient.addColorStop(0, '#ff6a00');
+  gradient.addColorStop(0.5, '#ff4500');
+  gradient.addColorStop(1, '#ff8c00');
+
+  ctx.fillStyle = gradient;
+  ctx.font = "bold 36px 'Anton', sans-serif";
+  ctx.shadowColor = '#ff4500';
+  ctx.shadowBlur = 20;
+  ctx.textAlign = 'left';
+  ctx.fillText("Score: " + score, 20, 50);
+
+  if (gameOver) {
+    // Fire-style game over text centered with glow
+    const goGradient = ctx.createLinearGradient(0, canvas.height / 2 - 50, 0, canvas.height / 2 + 50);
+    goGradient.addColorStop(0, '#ff0000');
+    goGradient.addColorStop(0.5, '#ff6347');
+    goGradient.addColorStop(1, '#ffa07a');
+
+    ctx.fillStyle = goGradient;
+    ctx.font = "bold 64px 'Anton', sans-serif";
+    ctx.shadowColor = '#ff0000';
+    ctx.shadowBlur = 40;
+    ctx.textAlign = 'center';
+    ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2);
+  }
+
+  // reset shadow effect for other drawings
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+}
+
+
+    function update() {
+      if (gameOver) return;
+
+      bird.vy += GRAVITY;
+      bird.y += bird.vy;
+
+      if (fires.length === 0 || fires[fires.length - 1].x < 200) addFire();
+
+      fires.forEach(fire => {
+        fire.x -= 2;
+
+        if (fire.x + fire.width < bird.x && !fire.counted) {
+          score++;
+          fire.counted = true;
+          soundScore.play();
+        }
+      });
+
+      fires = fires.filter(fire => fire.x + fire.width > 0);
+
+      fires.forEach(fire => {
+        if (
+          bird.x + BIRD_SIZE > fire.x && bird.x < fire.x + fire.width &&
+          (bird.y < fire.top || bird.y + BIRD_SIZE > canvas.height - fire.bottom)
+        ) {
+          endGame();
+        }
+      });
+
+      if (bird.y < 0 || bird.y + BIRD_SIZE > canvas.height) endGame();
+    }
+
+    function endGame() {
+      if (!gameOver) soundGameOver.play();
+      gameOver = true;
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener('keydown', e => { if (e.code === 'Space') flap(); });
+    window.addEventListener('mousedown', flap);
+
+    birdImg.onload = function() {
+      fireImg.onload = function() {
+        gameLoop();
+      };
+    };
+  </script>
+</body>
+</html>
